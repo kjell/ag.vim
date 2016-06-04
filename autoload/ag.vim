@@ -60,6 +60,10 @@ if !exists("g:ag_working_path_mode")
     let g:ag_working_path_mode = 'c'
 endif
 
+if !exists("g:ag_default_open_style")
+    let g:ag_default_open_style = 'replace'
+endif
+
 function! ag#AgBuffer(cmd, args)
   let l:bufs = filter(range(1, bufnr('$')), 'buflisted(v:val)')
   let l:files = []
@@ -93,8 +97,20 @@ function! ag#Ag(cmd, args)
     return
   endif
 
+  " Should Ag open the first result automatically?
+  " If not, Ag! assumes the default behavior.
+  if g:ag_default_open_style ==? 'noreplace'
+    let l:cmd = join(split(a:cmd, '!'))
+    if a:cmd =~# '!$'
+    else
+      let l:cmd = l:cmd.'!'
+    endif
+  else
+    let l:cmd = a:cmd
+  endif
+
   " Format, used to manage column jump
-  if a:cmd =~# '-g$'
+  if l:cmd =~# '-g$'
     let s:ag_format_backup=g:ag_format
     let g:ag_format="%f"
   elseif exists("s:ag_format_backup")
@@ -120,11 +136,11 @@ function! ag#Ag(cmd, args)
       catch
         echom 'Failed to change directory to:'.l:cwd
       finally
-        silent! execute a:cmd . " " . escape(l:grepargs, '|')
+        silent! execute l:cmd . " " . escape(l:grepargs, '|')
         exe "lcd ".l:cwd_back
       endtry
     else " Someone chose an undefined value or 'c' so we revert to the default
-      silent! execute a:cmd . " " . escape(l:grepargs, '|')
+      silent! execute l:cmd . " " . escape(l:grepargs, '|')
     endif
   finally
     let &grepprg=l:grepprg_bak
@@ -133,13 +149,13 @@ function! ag#Ag(cmd, args)
     let &t_te=l:t_te_bak
   endtry
 
-  if a:cmd =~# '^l'
+  if l:cmd =~# '^l'
     let l:match_count = len(getloclist(winnr()))
   else
     let l:match_count = len(getqflist())
   endif
 
-  if a:cmd =~# '^l' && l:match_count
+  if l:cmd =~# '^l' && l:match_count
     exe g:ag_lhandler
     let l:apply_mappings = g:ag_apply_lmappings
     let l:matches_window_prefix = 'l' " we're using the location list
